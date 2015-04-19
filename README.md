@@ -6,3 +6,5 @@ clench jaw to go up
 blink to go down
 
 tilt head to go forward/back/right/left
+
+wink to flip
