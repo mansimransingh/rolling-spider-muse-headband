@@ -34,6 +34,7 @@ import com.interaxon.libmuse.MuseDataPacketType;
 import com.interaxon.libmuse.MuseManager;
 import com.interaxon.libmuse.MusePreset;
 import com.interaxon.libmuse.MuseVersion;
+import com.parrot.arsdk.arcommands.ARCOMMANDS_MINIDRONE_ANIMATIONS_FLIP_DIRECTION_ENUM;
 import com.parrot.arsdk.ardiscovery.ARDiscoveryDeviceService;
 
 
@@ -199,9 +200,9 @@ public class MainActivity extends Activity implements DeviceControllerListener {
         public void receiveMuseConnectionPacket(MuseConnectionPacket p) {
             final ConnectionState current = p.getCurrentConnectionState();
             final String status = p.getPreviousConnectionState().toString() +
-                         " -> " + current;
+                    " -> " + current;
             final String full = "Muse " + p.getSource().getMacAddress() +
-                                " " + status;
+                    " " + status;
             Log.i("Muse Headband", full);
             Activity activity = activityRef.get();
             // UI thread is used here only because we need to update
@@ -274,12 +275,12 @@ public class MainActivity extends Activity implements DeviceControllerListener {
             }
 
             if(p.getBlink()){
-                down();
+//                down();
                 if(running){
                     textViewStatus.setText("blink:down");
                 }
             } else if(p.getJawClench()){
-                up();
+//                up();
                 if(running){
                     textViewStatus.setText("clench:up");
                 }
@@ -301,32 +302,46 @@ public class MainActivity extends Activity implements DeviceControllerListener {
                         Double y = data.get(Accelerometer.UP_DOWN.ordinal());
                         Double z = data.get(Accelerometer.LEFT_RIGHT.ordinal());
 
-                        if(running == true) {
+//                        if(running == true) {
 
-                            if (x < -450) {
-                                back();
-                            } else if (x > 100) {
-                                forward();
-                            }
-
-                            if (z > 350) {
-                                right();
-                            } else if (z < 100) {
-                                left();
-                            }
-
+                        if (x < -500) {
+                            back();
+                        } else if (x > 500) {
+                            forward();
                         }
 
+                        if (z > 600) {
+                            right();
+                        } else if (z < -250) {
+                            left();
+                        }
+
+//                        }
+
                         acc_x.setText(String.format(
-                            "%6.2f", x));
+                                "%6.2f", x));
                         acc_y.setText(String.format(
-                            "%6.2f", y));
+                                "%6.2f", y));
                         acc_z.setText(String.format(
-                            "%6.2f", z));
+                                "%6.2f", z));
                     }
                 });
             }
         }
+
+
+        private int avg(double[] x){
+            double sum = 0;
+            for(double xx : x){
+                sum+=xx;
+            }
+
+            return (int)sum/x.length;
+        }
+
+        private double[][] _eeg = new double[4][4];
+        private boolean hitLow = false;
+
 
         private void updateEeg(final ArrayList<Double> data) {
             Activity activity = activityRef.get();
@@ -334,18 +349,43 @@ public class MainActivity extends Activity implements DeviceControllerListener {
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                         TextView tp9 = (TextView) findViewById(R.id.eeg_tp9);
-                         TextView fp1 = (TextView) findViewById(R.id.eeg_fp1);
-                         TextView fp2 = (TextView) findViewById(R.id.eeg_fp2);
-                         TextView tp10 = (TextView) findViewById(R.id.eeg_tp10);
-                         tp9.setText(String.format(
-                            "%6.2f", data.get(Eeg.TP9.ordinal())));
-                         fp1.setText(String.format(
-                            "%6.2f", data.get(Eeg.FP1.ordinal())));
-                         fp2.setText(String.format(
-                            "%6.2f", data.get(Eeg.FP2.ordinal())));
-                         tp10.setText(String.format(
-                            "%6.2f", data.get(Eeg.TP10.ordinal())));
+                        TextView tp9 = (TextView) findViewById(R.id.eeg_tp9);
+                        TextView fp1 = (TextView) findViewById(R.id.eeg_fp1);
+                        TextView fp2 = (TextView) findViewById(R.id.eeg_fp2);
+                        TextView tp10 = (TextView) findViewById(R.id.eeg_tp10);
+
+                        _eeg[0] = _eeg[1];
+                        _eeg[1] = _eeg[2];
+                        _eeg[2] = _eeg[3];
+                        _eeg[3] = new double[]{
+                            data.get(Eeg.TP9.ordinal()),
+                                data.get(Eeg.FP1.ordinal()),
+                                data.get(Eeg.FP2.ordinal()),
+                                data.get(Eeg.TP10.ordinal())
+                        };
+
+                        int avg = avg(new double[] { avg(_eeg[0]), avg(_eeg[1]), avg(_eeg[2]), avg(_eeg[3]) });
+
+                        if(avg < 400){
+                            hitLow = true;
+                        }
+
+                        if(avg > 1000 && hitLow){
+                            hitLow = false;
+
+                            //we winked
+//                            flip();
+                        }
+
+
+                        tp9.setText(String.format(
+                                "%6.2f", _eeg[3][0]));
+                        fp1.setText(String.format(
+                                "%6.2f", _eeg[3][1]));
+                        fp2.setText(String.format(
+                                "%6.2f", _eeg[3][2]));
+                        tp10.setText(String.format(
+                                "%6.2f", _eeg[3][3]));
                     }
                 });
             }
@@ -385,6 +425,8 @@ public class MainActivity extends Activity implements DeviceControllerListener {
     private Button takeoffBt;
     private Button landingBt;
 
+    private Button upButton;
+
     private Button forwardBt;
     private Button backBt;
     private Button rollLeftBt;
@@ -398,7 +440,7 @@ public class MainActivity extends Activity implements DeviceControllerListener {
     public MainActivity() {
         // Create listeners and pass reference to activity to them
         WeakReference<Activity> weakActivity =
-                                new WeakReference<Activity>(this);
+                new WeakReference<Activity>(this);
         connectionListener = new ConnectionListener(weakActivity);
         dataListener = new DataListener(weakActivity);
     }
@@ -667,23 +709,67 @@ public class MainActivity extends Activity implements DeviceControllerListener {
         });
 
         toggleHeadband = (Button)findViewById(R.id.useHeadband);
-                textViewStatus= (TextView)findViewById(R.id.textViewStatus);
+        textViewStatus= (TextView)findViewById(R.id.textViewStatus);
 
         textViewStatus.setText("Not running");
         toggleHeadband.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View v) {
-                running = !running;
+//                running = !running;
+//
+//                if(running){
+//                    textViewStatus.setText("Running");
+//                } else {
+//                    textViewStatus.setText("Not running");
+//                }
 
-                if(running){
-                    textViewStatus.setText("Running");
-                } else {
-                    textViewStatus.setText("Not running");
+                flip();
+            }
+        });
+
+        upButton = (Button) findViewById(R.id.upButton);
+        upButton.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event)
+            {
+                switch (event.getAction())
+                {
+                    case MotionEvent.ACTION_DOWN:
+                        v.setPressed(true);
+                        if (deviceController != null)
+                        {
+                            deviceController.setGaz((byte) 50);
+                        }
+                        break;
+
+                    case MotionEvent.ACTION_UP:
+                        v.setPressed(false);
+                        if (deviceController != null)
+                        {
+                            deviceController.setGaz((byte)0);
+
+                        }
+                        break;
+
+                    default:
+
+                        break;
                 }
+
+                return true;
             }
         });
     }
 
+
+
+    private void flip(){
+        if(deviceController != null){
+
+            deviceController.flip(ARCOMMANDS_MINIDRONE_ANIMATIONS_FLIP_DIRECTION_ENUM.ARCOMMANDS_MINIDRONE_ANIMATIONS_FLIP_DIRECTION_FRONT);
+
+        }
+    }
 
     private void forward(){
         if (deviceController != null)
@@ -708,6 +794,9 @@ public class MainActivity extends Activity implements DeviceControllerListener {
         {
             deviceController.setPitch((byte)-50);
             deviceController.setFlag((byte)1);
+
+
+
 
             new android.os.Handler().postDelayed(
                     new Runnable() {
@@ -793,13 +882,13 @@ public class MainActivity extends Activity implements DeviceControllerListener {
     private void configure_library() {
         muse.registerConnectionListener(connectionListener);
         muse.registerDataListener(dataListener,
-                                  MuseDataPacketType.ACCELEROMETER);
+                MuseDataPacketType.ACCELEROMETER);
         muse.registerDataListener(dataListener,
-                                  MuseDataPacketType.EEG);
+                MuseDataPacketType.EEG);
         muse.registerDataListener(dataListener,
-                                  MuseDataPacketType.ALPHA_RELATIVE);
+                MuseDataPacketType.ALPHA_RELATIVE);
         muse.registerDataListener(dataListener,
-                                  MuseDataPacketType.ARTIFACTS);
+                MuseDataPacketType.ARTIFACTS);
         muse.setPreset(MusePreset.PRESET_14);
         muse.enableDataTransmission(dataTransmission);
     }

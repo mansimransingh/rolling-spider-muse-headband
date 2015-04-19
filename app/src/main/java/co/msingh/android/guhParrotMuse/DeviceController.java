@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import com.parrot.arsdk.arcommands.ARCOMMANDS_COMMON_MAVLINK_START_TYPE_ENUM;
 import com.parrot.arsdk.arcommands.ARCOMMANDS_DECODER_ERROR_ENUM;
 import com.parrot.arsdk.arcommands.ARCOMMANDS_GENERATOR_ERROR_ENUM;
+import com.parrot.arsdk.arcommands.ARCOMMANDS_MINIDRONE_ANIMATIONS_FLIP_DIRECTION_ENUM;
 import com.parrot.arsdk.arcommands.ARCommand;
 import com.parrot.arsdk.arcommands.ARCommandCommonCommonStateBatteryStateChangedListener;
 import com.parrot.arsdk.arcommands.ARCommandsVersion;
@@ -377,6 +378,39 @@ public class DeviceController implements ARCommandCommonCommonStateBatteryStateC
         if (sentStatus == false)
         {
             ARSALPrint.e(TAG, "Failed to send PCMD command.");
+        }
+
+        return sentStatus;
+    }
+
+    public boolean flip(ARCOMMANDS_MINIDRONE_ANIMATIONS_FLIP_DIRECTION_ENUM direction){
+
+
+        ARCOMMANDS_GENERATOR_ERROR_ENUM cmdError = ARCOMMANDS_GENERATOR_ERROR_ENUM.ARCOMMANDS_GENERATOR_OK;
+        boolean sentStatus = false;
+        ARCommand cmd = new ARCommand();
+
+        cmdError = cmd.setMiniDroneAnimationsFlip(direction);
+//        cmdError = cmd.setMiniDronePilotingPCMD (dataPCMD.flag, dataPCMD.roll, dataPCMD.pitch, dataPCMD.yaw, dataPCMD.gaz, dataPCMD.psi);
+
+        if (cmdError == ARCOMMANDS_GENERATOR_ERROR_ENUM.ARCOMMANDS_GENERATOR_OK)
+        {
+            /* Send data with ARNetwork */
+            // The commands sent by event should be sent to an buffer acknowledged  ; here iobufferC2dAck
+            ARNETWORK_ERROR_ENUM netError = netManager.sendData (iobufferC2dAck, cmd, null, true);
+
+            if (netError != ARNETWORK_ERROR_ENUM.ARNETWORK_OK)
+            {
+                ARSALPrint.e(TAG, "netManager.sendData() failed. " + netError.toString());
+                sentStatus = false;
+            }
+
+            cmd.dispose();
+        }
+
+        if (sentStatus == false)
+        {
+            ARSALPrint.e(TAG, "Failed to send TakeOff command.");
         }
 
         return sentStatus;
